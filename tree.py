@@ -4,19 +4,30 @@ import pathlib
 
 def get_rows(path: pathlib.Path, node_str="├───", pass_str="│   "):
     # 生成用于打印的字符串
-    yield node_str + path.name
     # 如果是目录,就递归
     if path.is_dir():
-        for sub_file in get_tree_nodes(path):
+        path_iter = get_tree_nodes(path)
+        # 为了识别出无权限的情况，无权限时有额外的提示
+        yield node_str + next(path_iter)
+        for sub_file in path_iter:
             yield pass_str + sub_file
+    else:
+        yield node_str + path.name
 
 
 def get_tree_nodes(path: pathlib.Path):
-    # 这里是为了得到迭代的最后一个（最后一个的显示和其他的不同），延迟生成（可能遇到空目录）
     path_iter = path.iterdir()
-    last_file = next(path_iter, None)
-    # 当前目录是否为空。如果不是空，才会生成
-    if last_file is not None:
+    # 可以检测访问权限、空目录
+    try:
+        # 这里是为了得到迭代的最后一个（最后一个的显示和其他的不同），延迟生成
+        last_file = next(path_iter)
+        yield path.name
+    except PermissionError:
+        yield path.name + "* Permission denied *"
+    except StopIteration:
+        yield path.name
+    else:
+        # 当前目录有权限且非空，才会生成
         for file in path_iter:
             yield from get_rows(last_file)
             last_file = file

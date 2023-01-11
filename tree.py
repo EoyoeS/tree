@@ -1,8 +1,28 @@
 import argparse
 import pathlib
+from collections import namedtuple
 
 
-def get_rows(path: pathlib.Path, node_str="├───", pass_str="│   "):
+Symbols = namedtuple(
+    "Symbols",
+    (
+        "node_str",
+        "pass_str",
+        "last_node_str",
+        "last_pass_str",
+    ),
+)
+
+
+all_symbols = (
+    Symbols("├───", "│   ", "└───", "    "),
+    Symbols("|---", "|   ", "\---", "    "),
+)
+
+symbols: Symbols
+
+
+def get_rows(path: pathlib.Path, node_str: str, pass_str: str):
     # 生成用于打印的字符串
     yield node_str + path.name
     # 如果是目录,就递归
@@ -20,18 +40,35 @@ def get_tree_nodes(path: pathlib.Path):
     except (PermissionError, StopIteration):
         return
     for file in path_iter:
-        yield from get_rows(last_file)
+        yield from get_rows(last_file, symbols.node_str, symbols.pass_str)
         last_file = file
-    yield from get_rows(last_file, node_str="└───", pass_str="    ")
+    yield from get_rows(last_file, symbols.last_node_str, symbols.last_pass_str)
 
 
 def main():
     parser = argparse.ArgumentParser(
         description="Graphically displays the folder structure of a drive or path."
     )
-    parser.add_argument("path", metavar="PATH", type=str, nargs="?")
+    parser.add_argument(
+        "path",
+        metavar="PATH",
+        type=str,
+        nargs="?",
+        help="A directory that serves as the root of the tree",
+    )
+    parser.add_argument(
+        "-a",
+        "--ascii",
+        action="store_true",
+        default=False,
+        help="Use ASCII instead of extended characters.",
+    )
     args = parser.parse_args()
     path = args.path
+    use_ascii = args.ascii
+    global symbols
+    symbols = all_symbols[use_ascii]
+
     # 没有指定路径，就默认当前路径
     if path is None:
         path = pathlib.Path(".")
